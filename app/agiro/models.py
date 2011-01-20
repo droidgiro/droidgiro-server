@@ -5,5 +5,3 @@ class Pin(db.Model):
     code = db.IntegerProperty()
     channel = db.StringProperty()
     date = db.DateTimeProperty(auto_now_add=True)
-
-
