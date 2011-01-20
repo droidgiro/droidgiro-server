@@ -11,7 +11,7 @@ import time
 import random
 import md5
 from django.utils import simplejson
-from agiro.models import Invoice
+from agiro.models import Pin
 
 class MainPage(webapp.RequestHandler):
     def get(self):

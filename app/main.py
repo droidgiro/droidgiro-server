@@ -8,7 +8,6 @@ def main():
     application = webapp.WSGIApplication([
             ('/', MainPage),
             ('/invoices(?:/(\d+))?', InvoiceHandler),
-            ('/v2/invoices(?:/(\d+))?', InvoiceHandler),
             ('/register', RegisterHandler)
         ],
         debug=True)
