@@ -6,7 +6,7 @@ from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
 from google.appengine.ext import db
 import os
-from datetime import datetime, time, date
+from datetime import datetime, time, date, timedelta
 import time
 import random
 import md5
@@ -45,26 +45,80 @@ class InvoiceHandler(webapp.RequestHandler):
 
 class RegisterHandler(webapp.RequestHandler):
     def get(self):
-        # TODO: Generate pin and channel name and verify that it's available
-        identifier = random.randint(1000, 9999)
-        token = channel.create_channel(str(identifier))
+        random.seed()
+        hash = random.getrandbits(128)
+        channel_name = "%016x" % hash
 
-        self.response.headers.add_header("Content-Type", 'application/json; charset=utf-8')
-        self.response.out.write(simplejson.dumps({
-            'token': token,
-            'identifier': identifier,
-        }))
+        iterations = 0
+        found = False
+        while not found:
+            pin_code = random.randint(1000, 9999)
+            q = Pin.all()
+            q.filter('code = ', pin_code)
+            pin = q.get()
+
+            if pin:
+                time = datetime.utcnow() - timedelta(minutes=5)
+                if pin.date <= time:
+                    pin.code = pin_code
+                    pin.channel = channel_name
+                    pin.date = datetime.utcnow()
+                    pin.put()
+                    found = True
+                else:
+                    pin = None
+            else:
+                pin = Pin()
+                pin.code = pin_code
+                pin.channel = channel_name
+                pin.put()
+                found = True
+
+            iterations += 1
+            if iterations >= 10:
+                found = True
+                pin = None
+
+        if not pin:
+            self.response.set_status(409) # Conflict
+            self.response.headers.add_header("Content-Type", 'application/json; charset=utf-8')
+            self.response.out.write(simplejson.dumps("Try again."))
+        else:
+            token = channel.create_channel(pin.channel)
+            self.response.headers.add_header("Content-Type", 'application/json; charset=utf-8')
+            self.response.out.write(simplejson.dumps({
+                'token': token,
+                'channel': pin.channel,
+                'pin': pin.code,
+            }))
 
     def post(self):
-        # TODO: Verify pin and channel.
-        pin = self.request.get('pin')
-        m = md5.new()
-        m.update(str(random.randint(1000, 99999)))
-        channel = m.hexdigest()
+        pin_code = self.request.get('pin')
+        if not pin_code:
+            self.response.headers.add_header("Content-Type", 'application/json; charset=utf-8')
+            self.response.set_status(400)
+            self.response.out.write(simplejson.dumps('Missing parameters.'))
+            return
+        try:
+            pin_code = int(pin_code)
+        except:
+            self.response.headers.add_header("Content-Type", 'application/json; charset=utf-8')
+            self.response.set_status(400)
+            self.response.out.write(simplejson.dumps('Bad parameters.'))
+            return
 
-        self.response.headers.add_header("Content-Type", 'application/json; charset=utf-8')
-        self.response.out.write(simplejson.dumps({
-            'channel': channel,
-        }))
+        q = Pin.all()
+        q.filter('code = ', pin_code)
+        pin = q.get()
 
+        if not pin:
+            self.response.headers.add_header("Content-Type", 'application/json; charset=utf-8')
+            self.response.set_status(401)
+            self.response.out.write(simplejson.dumps('Unauthorize, must register again.'))
+        else:
+            channel.send_message(pin.channel, simplejson.dumps('Connected'))
+            self.response.headers.add_header("Content-Type", 'application/json; charset=utf-8')
+            self.response.out.write(simplejson.dumps({
+                'channel': pin.channel,
+            }))
 
