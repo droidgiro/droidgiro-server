@@ -13,6 +13,11 @@ import md5
 from django.utils import simplejson
 from agiro.models import Pin
 
+class ChannelMessage(dict):
+    def __init__(self, type):
+        super(ChannelMessage, self).__init__()
+        self['type'] = type
+
 class MainPage(webapp.RequestHandler):
     def get(self):
         template_values = {}
@@ -111,14 +116,24 @@ class RegisterHandler(webapp.RequestHandler):
         q.filter('code = ', pin_code)
         pin = q.get()
 
+        channel_message = ChannelMessage('register')
+
         if not pin:
+            channel_message['message'] = 'Failed to connect'
+            channel.send_message(channel_name, simplejson.dumps(channel_message))
+
             self.response.headers.add_header("Content-Type", 'application/json; charset=utf-8')
             self.response.set_status(401)
             self.response.out.write(simplejson.dumps('Unauthorize, must register again.'))
         else:
-            channel.send_message(pin.channel, simplejson.dumps('Connected'))
+            channel_name = pin.channel
+
+            channel_message['message'] = 'Connected'
+            channel.send_message(channel_name, simplejson.dumps(channel_message))
+
+            pin.delete()
+
             self.response.headers.add_header("Content-Type", 'application/json; charset=utf-8')
             self.response.out.write(simplejson.dumps({
-                'channel': pin.channel,
+                'channel': channel_name,
             }))
-
