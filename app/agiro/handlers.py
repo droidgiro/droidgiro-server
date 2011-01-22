@@ -14,9 +14,10 @@ from django.utils import simplejson
 from agiro.models import Pin
 
 class ChannelMessage(dict):
-    def __init__(self, type):
+    def __init__(self, type, payload):
         super(ChannelMessage, self).__init__()
         self['type'] = type
+        self['payload'] = payload
 
 class MainPage(webapp.RequestHandler):
     def get(self):
@@ -27,12 +28,12 @@ class MainPage(webapp.RequestHandler):
 
 class InvoiceHandler(webapp.RequestHandler):
     def post(self, invoice_id):
-        identifier = self.request.get('identifier')
+        channel_name = self.request.get('channel')
 
-        if not identifier:
-            self.response.set_status(401)
+        if not channel_name:
+            self.response.set_status(400)
             self.response.headers.add_header("Content-Type", 'application/json; charset=utf-8')
-            self.response.out.write(simplejson.dumps("Unauthorized"))
+            self.response.out.write(simplejson.dumps("Invalid or missing parameters."))
             return
 
         invoice = {}
@@ -42,7 +43,7 @@ class InvoiceHandler(webapp.RequestHandler):
 
         response = simplejson.dumps(invoice)
 
-        channel.send_message(str(identifier), response)
+        channel.send_message(channel_name, response)
 
         self.response.headers.add_header("Content-Type", 'application/json; charset=utf-8')
         self.response.set_status(201)
@@ -116,11 +117,9 @@ class RegisterHandler(webapp.RequestHandler):
         q.filter('code = ', pin_code)
         pin = q.get()
 
-        channel_message = ChannelMessage('register')
-
         if not pin:
-            channel_message['message'] = 'Failed to connect'
-            channel.send_message(channel_name, simplejson.dumps(channel_message))
+            #channel_message = ChannelMessage('register', 'Failed to connect')
+            #channel.send_message(channel_name, simplejson.dumps(channel_message))
 
             self.response.headers.add_header("Content-Type", 'application/json; charset=utf-8')
             self.response.set_status(401)
@@ -128,7 +127,7 @@ class RegisterHandler(webapp.RequestHandler):
         else:
             channel_name = pin.channel
 
-            channel_message['message'] = 'Connected'
+            channel_message = ChannelMessage('register', 'Successfully connected.')
             channel.send_message(channel_name, simplejson.dumps(channel_message))
 
             pin.delete()
