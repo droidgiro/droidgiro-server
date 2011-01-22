@@ -40,14 +40,14 @@ class InvoiceHandler(webapp.RequestHandler):
         invoice.setdefault('reference', self.request.get('reference'))
         invoice.setdefault('type', self.request.get('type'))
         invoice.setdefault('amount', self.request.get('amount'))
+        invoice.setdefault('account', self.request.get('account'))
 
-        response = simplejson.dumps(invoice)
-
-        channel.send_message(channel_name, response)
+        channel_message = ChannelMessage('invoice', invoice)
+        channel.send_message(channel_name, channel_message)
 
         self.response.headers.add_header("Content-Type", 'application/json; charset=utf-8')
         self.response.set_status(201)
-        self.response.out.write(response)
+        self.response.out.write(simplejson.dumps(invoice))
 
 class RegisterHandler(webapp.RequestHandler):
     def get(self):
