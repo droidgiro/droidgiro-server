@@ -1,4 +1,4 @@
-application: agiroapp
+application: droidgiro
 version: 2
 runtime: python
 api_version: 1
