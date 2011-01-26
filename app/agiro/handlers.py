@@ -43,7 +43,7 @@ class InvoiceHandler(webapp.RequestHandler):
         invoice.setdefault('account', self.request.get('account'))
 
         channel_message = ChannelMessage('invoice', invoice)
-        channel.send_message(channel_name, channel_message)
+        channel.send_message(channel_name, simplejson.dumps(channel_message))
 
         self.response.headers.add_header("Content-Type", 'application/json; charset=utf-8')
         self.response.set_status(201)
